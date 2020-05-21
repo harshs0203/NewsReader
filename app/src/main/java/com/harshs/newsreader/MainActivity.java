@@ -2,6 +2,8 @@ package com.harshs.newsreader;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteStatement;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -9,6 +11,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -24,10 +27,17 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<String> titles =  new ArrayList<>();
     ArrayAdapter arrayAdapter;
 
+    SQLiteDatabase articlesDB;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        articlesDB =  this.openOrCreateDatabase("Article",MODE_PRIVATE,null);
+
+        articlesDB.execSQL("CREATE TABLE IF NOT EXISTS article (id INTEGER PRIMARY KEY, articleID INTEGER, title VARCHAR, content VARCHAR)");
 
         DownloadTask task = new DownloadTask();
         try {
@@ -104,7 +114,33 @@ public class MainActivity extends AppCompatActivity {
                         data= inputStreamReader.read();
 
                     }
-                    Log.i("ArticleContent", articleInfo);
+
+                    JSONObject jsonObject = new JSONObject(articleInfo);
+
+                     if(!jsonObject.isNull("title") && !jsonObject.isNull("url")){
+
+                         String articleTitle = jsonObject.getString("title");
+                         String articleURL = jsonObject.getString("url");
+
+                         url = new URL(articleURL);
+                         urlConnection = (HttpsURLConnection) url.openConnection();
+                         inputStream = urlConnection.getInputStream();
+                         inputStreamReader = new InputStreamReader(inputStream);
+                         data = inputStreamReader.read();
+                         String articleContent =  "";
+                         while(data != -1){
+                             char current = (char) data;
+                             articleContent += current;
+                             data =inputStream.read();
+                         }
+                         Log.i("HTML",articleContent);
+
+                         String sql = "";
+                         SQLiteStatement sqLiteStatement = articlesDB.compileStatement(sql);
+                         sqLiteStatement.bindString(1,articleId);
+                         sqLiteStatement.bindString(1,articleTitle);
+                         sqLiteStatement.bindString(1,articleContent);
+                     }
                 }
 
                 Log.i("Content", result);

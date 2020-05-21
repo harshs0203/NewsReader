@@ -2,6 +2,7 @@ package com.harshs.newsreader;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteStatement;
 import android.os.AsyncTask;
@@ -25,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
     //source site https://news.ycombinator.com/
 
     ArrayList<String> titles =  new ArrayList<>();
+    ArrayList<String> content =  new ArrayList<>();
     ArrayAdapter arrayAdapter;
 
     SQLiteDatabase articlesDB;
@@ -37,7 +39,9 @@ public class MainActivity extends AppCompatActivity {
 
         articlesDB =  this.openOrCreateDatabase("Article",MODE_PRIVATE,null);
 
-        articlesDB.execSQL("CREATE TABLE IF NOT EXISTS article (id INTEGER PRIMARY KEY, articleID INTEGER, title VARCHAR, content VARCHAR)");
+        articlesDB.execSQL("CREATE TABLE IF NOT EXISTS articles (id INTEGER PRIMARY KEY, articleID INTEGER, title VARCHAR, content VARCHAR)");
+
+        updateListView();
 
         DownloadTask task = new DownloadTask();
         try {
@@ -51,6 +55,24 @@ public class MainActivity extends AppCompatActivity {
         ListView listView = findViewById(R.id.listView);
         arrayAdapter= new ArrayAdapter(this, android.R.layout.simple_list_item_1,titles);
         listView.setAdapter(arrayAdapter);
+
+    }
+
+    public void updateListView(){
+        Cursor c = articlesDB.rawQuery("SELECT * FROM articles",null);
+         int contentIndex = c.getColumnIndex("content");
+         int titleIndex = c.getColumnIndex("title");
+
+         if(c.moveToFirst()){
+             titles.clear();
+             content.clear();
+         do{
+             titles.add(c.getString(titleIndex));
+             content.add(c.getString(contentIndex));
+         }while (c.moveToFirst());
+
+         arrayAdapter.notifyDataSetChanged();
+         }
 
     }
 
@@ -93,8 +115,9 @@ public class MainActivity extends AppCompatActivity {
 
                 }
 
-                for (int i=0;i < numberOfItems;i++){
+                articlesDB.execSQL("DELETE FROM articles");
 
+                for (int i=0;i < numberOfItems;i++){
                     String articleId =  jsonArray.getString(i);
                     url = new URL("https://hacker-news.firebaseio.com/v0/item/"+articleId+".json?print=pretty");
                     urlConnection = (HttpsURLConnection) url.openConnection();
@@ -135,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
                          }
                          Log.i("HTML",articleContent);
 
-                         String sql = "";
+                         String sql = "INSERT INTO articles (articleId,title,content)VALUES (?,?,?)";
                          SQLiteStatement sqLiteStatement = articlesDB.compileStatement(sql);
                          sqLiteStatement.bindString(1,articleId);
                          sqLiteStatement.bindString(1,articleTitle);
@@ -150,6 +173,13 @@ public class MainActivity extends AppCompatActivity {
             }
 
             return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+
+            updateListView();
         }
     }
 }
